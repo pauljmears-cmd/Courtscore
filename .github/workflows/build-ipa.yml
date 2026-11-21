@@ -1,0 +1,41 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:        # adds a "Run workflow" button
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version and schemes
+        run: |
+          xcodebuild -version
+          xcodebuild -list -project Scoreboard.xcodeproj
+
+      - name: Archive (no code signing)
+        run: |
+          xcodebuild archive \
+            -project Scoreboard.xcodeproj \
+            -scheme Scoreboard \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Scoreboard.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package .ipa
+        run: |
+          cd "$RUNNER_TEMP"
+          mkdir -p Payload
+          cp -R Scoreboard.xcarchive/Products/Applications/Scoreboard.app Payload/
+          zip -qry Scoreboard.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Scoreboard-ipa
+          path: ${{ runner.temp }}/Scoreboard.ipa
